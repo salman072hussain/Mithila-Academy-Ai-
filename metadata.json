@@ -1,0 +1,6 @@
+{
+  "name": "Mithila Academy AI",
+  "description": "AI study assistant for students by Mithila Academy. Type or speak academic questions with step-by-step guidance.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mithila Academy AI</string>
+    <string name="widget_description">Search, voice, camera, and gallery shortcuts for Mithila Academy AI.</string>
+    <string name="search_hint">Ask Mithila Academy AI...</string>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_voice">Voice</string>
+    <string name="shortcut_camera">Camera</string>
+    <string name="shortcut_gallery">Gallery</string>
+    <string name="location_answer">Mithila Academy Kauriyahi Village mein sthit hai.</string>
+    <string name="author_suffix">Surendra Sir ke anusar.</string>
+</resources>
