@@ -13,6 +13,22 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         // Dispatched only when a newer version is genuinely downloaded & waiting
         window.dispatchEvent(new CustomEvent('pwa-update-available'));
       },
+      onRegisteredSW(_swUrl, r) {
+        if (r) {
+          // Check for service worker updates periodically and when user returns to app
+          const checkForUpdates = () => {
+            r.update().catch(() => {});
+          };
+          // Periodic check every 15 minutes
+          setInterval(checkForUpdates, 15 * 60 * 1000);
+          // Check on window focus/visibility change
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+              checkForUpdates();
+            }
+          });
+        }
+      },
       onRegisterError(error: unknown) {
         console.warn('Service Worker registration skipped:', error);
       },

@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
@@ -70,6 +71,44 @@ app.get("/api/health", (_req, res) => {
     app: "Mithila Academy AI",
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
   });
+});
+
+// App configuration endpoint for APK download
+app.get("/api/config", (_req, res) => {
+  // Check if a real signed APK file exists on the filesystem
+  const publicApkPath = path.join(process.cwd(), "public", "downloads", "mithila-academy.apk");
+  const distApkPath = path.join(process.cwd(), "dist", "downloads", "mithila-academy.apk");
+  const hasLocalApk = fs.existsSync(publicApkPath) || fs.existsSync(distApkPath);
+
+  let apkDownloadUrl: string | null = null;
+  if (hasLocalApk) {
+    apkDownloadUrl = "/downloads/mithila-academy.apk";
+  }
+
+  res.json({
+    apkDownloadUrl,
+    hasApk: Boolean(apkDownloadUrl),
+    packageId: "com.mithila.academy",
+    versionName: "1.1.0",
+    versionCode: 2,
+  });
+});
+
+// Real APK file download handler with proper Android MIME types
+app.get("/downloads/:filename", (req, res, next) => {
+  const filename = req.params.filename;
+  if (filename && filename.toLowerCase().endsWith(".apk")) {
+    const publicFile = path.join(process.cwd(), "public", "downloads", filename);
+    const distFile = path.join(process.cwd(), "dist", "downloads", filename);
+    const targetFile = fs.existsSync(publicFile) ? publicFile : fs.existsSync(distFile) ? distFile : null;
+
+    if (targetFile) {
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.sendFile(targetFile);
+    }
+  }
+  next();
 });
 
 // Helper to sanitize and remove spurious or random meaningless symbols
@@ -501,6 +540,22 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+
+    // Service worker must never be cached by the browser to avoid obsolete versions
+    app.get(["/sw.js", "/dev-sw.js"], (_req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Content-Type", "application/javascript");
+      res.sendFile(path.join(distPath, "sw.js"));
+    });
+
+    // Web App Manifest endpoint with standard PWA MIME type
+    app.get(["/manifest.json", "/manifest.webmanifest"], (req, res) => {
+      res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache");
+      const filename = req.path.endsWith("webmanifest") ? "manifest.webmanifest" : "manifest.json";
+      res.sendFile(path.join(distPath, filename));
+    });
+
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));

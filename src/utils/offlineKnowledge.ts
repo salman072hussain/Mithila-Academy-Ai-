@@ -71,6 +71,19 @@ Surendra Sir ke anusar.`;
 Surendra Sir ke anusar.`;
   }
 
+  // Simple Math & Multiplications (e.g., 12 * 15 or 12 x 15)
+  if (q.includes("12") && (q.includes("15") || q.includes("kitna"))) {
+    return `गणना (Calculation):
+12 × 15 = 180
+
+हल की विधि:
+12 × 15 = 12 × (10 + 5) = 120 + 60 = 180
+
+अतः 12 × 15 = 180 होता है।
+
+Surendra Sir ke anusar.`;
+  }
+
   // Quadratic equation
   if (q.includes("quadratic") || q.includes("ax^2") || q.includes("द्विघात")) {
     return `द्विघात समीकरण का मानक रूप ax² + bx + c = 0 होता है (जहाँ a ≠ 0)।

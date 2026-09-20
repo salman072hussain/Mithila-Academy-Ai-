@@ -2,15 +2,15 @@ import React, { useState, useEffect, useRef } from "react";
 import { Header } from "./components/Header";
 import { AudioPlayerBar } from "./components/AudioPlayerBar";
 import { MessageItem } from "./components/MessageItem";
-import { QuestionInput } from "./components/QuestionInput";
-import { WelcomeScreen } from "./components/WelcomeScreen";
+import { HomeSearchBar } from "./components/HomeSearchBar";
 import { VoiceListeningOverlay } from "./components/VoiceListeningOverlay";
 import { ChatHistoryModal } from "./components/ChatHistoryModal";
-import { AndroidInstallModal } from "./components/AndroidInstallModal";
 import { AndroidBanner } from "./components/AndroidBanner";
 import { SettingsModal } from "./components/SettingsModal";
-import { SearchScreen } from "./components/SearchScreen";
 import { ChatMessage, ChatSession, SupportedLanguage } from "./types";
+import { useKeyboardAwareness } from "./hooks/useKeyboardAwareness";
+import { usePWAInstall } from "./hooks/usePWAInstall";
+import { useApkDownload } from "./hooks/useApkDownload";
 import { speechManager } from "./utils/speechRecognition";
 import {
   speakAnswer,
@@ -21,8 +21,26 @@ import {
   subscribeSpeechState,
   SpeechState,
 } from "./utils/speechSynthesis";
-import { AlertCircle, RefreshCw, BookOpen, Sparkles, WifiOff } from "lucide-react";
+import {
+  AlertCircle,
+  RefreshCw,
+  BookOpen,
+  Sparkles,
+  WifiOff,
+  MapPin,
+  Calculator,
+  FlaskConical,
+  Globe,
+  PenTool,
+  ArrowRight,
+  CheckCircle2,
+  Trash2,
+  PlusCircle,
+  Download,
+  Smartphone,
+} from "lucide-react";
 import { isMithilaLocationQuery, getOfflineAnswer } from "./utils/offlineKnowledge";
+import { SUBJECT_CATEGORIES } from "./data/sampleQuestions";
 
 const SESSIONS_STORAGE_KEY = "mithila_academy_sessions_v1";
 const THEME_STORAGE_KEY = "mithila_academy_theme";
@@ -38,9 +56,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isAndroidModalOpen, setIsAndroidModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isSearchScreenOpen, setIsSearchScreenOpen] = useState(false);
+  const { keyboardHeight, isKeyboardOpen, scrollToFocusedElement, searchContainerRef } = useKeyboardAwareness();
+  const { canInstall, isInstalled, installApp } = usePWAInstall();
+  const { isConfigured: isApkConfigured, downloadApk } = useApkDownload();
   const [offlineMode, setOfflineMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem(OFFLINE_MODE_STORAGE_KEY) === "true";
@@ -80,9 +99,7 @@ export default function App() {
 
   // Navigation state tracking for Android back and screen transitions
   const isHistoryOpenRef = useRef(isHistoryOpen);
-  const isAndroidModalOpenRef = useRef(isAndroidModalOpen);
   const isSettingsModalOpenRef = useRef(isSettingsModalOpen);
-  const isSearchScreenOpenRef = useRef(isSearchScreenOpen);
   const isListeningRef = useRef(isListening);
   const messagesRef = useRef(messages);
   const activeSessionIdRef = useRef(activeSessionId);
@@ -91,14 +108,8 @@ export default function App() {
     isHistoryOpenRef.current = isHistoryOpen;
   }, [isHistoryOpen]);
   useEffect(() => {
-    isAndroidModalOpenRef.current = isAndroidModalOpen;
-  }, [isAndroidModalOpen]);
-  useEffect(() => {
     isSettingsModalOpenRef.current = isSettingsModalOpen;
   }, [isSettingsModalOpen]);
-  useEffect(() => {
-    isSearchScreenOpenRef.current = isSearchScreenOpen;
-  }, [isSearchScreenOpen]);
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
@@ -119,27 +130,17 @@ export default function App() {
     }
 
     const handlePopState = () => {
-      // 1. If Search screen is open, Android back closes it
-      if (isSearchScreenOpenRef.current) {
-        setIsSearchScreenOpen(false);
-        return;
-      }
-      // 2. If Settings modal is open, Android back closes it
+      // 1. If Settings modal is open, Android back closes it
       if (isSettingsModalOpenRef.current) {
         setIsSettingsModalOpen(false);
         return;
       }
-      // 3. If Android install modal is open, Android back closes it
-      if (isAndroidModalOpenRef.current) {
-        setIsAndroidModalOpen(false);
-        return;
-      }
-      // 4. If history modal is open, Android back closes it
+      // 2. If history modal is open, Android back closes it
       if (isHistoryOpenRef.current) {
         setIsHistoryOpen(false);
         return;
       }
-      // 5. If voice overlay is open, Android back closes it
+      // 3. If voice overlay is open, Android back closes it
       if (isListeningRef.current) {
         speechManager.abort();
         setIsListening(false);
@@ -726,52 +727,26 @@ export default function App() {
   };
 
   const handleOpenSearch = () => {
-    setIsSearchScreenOpen(true);
-    if (typeof window !== "undefined" && window.history.state?.screen !== "search") {
-      window.history.pushState({ screen: "search" }, "", window.location.href);
-    }
+    scrollToFocusedElement(searchContainerRef.current);
+    const inputEl = document.getElementById("home-search-input") as HTMLInputElement | null;
+    inputEl?.focus();
   };
 
   const handleOpenSettings = () => {
     setIsSettingsModalOpen(true);
-    if (typeof window !== "undefined" && window.history.state?.screen !== "settings") {
-      window.history.pushState({ screen: "settings" }, "", window.location.href);
-    }
   };
 
-  const handleOpenAndroidModal = () => {
-    setIsAndroidModalOpen(true);
-    if (typeof window !== "undefined" && window.history.state?.screen !== "android") {
-      window.history.pushState({ screen: "android" }, "", window.location.href);
+  const handleInstallApp = async () => {
+    if (canInstall) {
+      await installApp();
     }
   };
 
   // Back button handler for top-left navigation
   const handleHeaderBack = () => {
-    // If Search screen is open, close it
-    if (isSearchScreenOpen) {
-      setIsSearchScreenOpen(false);
-      if (typeof window !== "undefined" && window.history.state?.screen === "search") {
-        window.history.back();
-      }
-      return;
-    }
-
     // If Settings modal is open, close it
     if (isSettingsModalOpen) {
       setIsSettingsModalOpen(false);
-      if (typeof window !== "undefined" && window.history.state?.screen === "settings") {
-        window.history.back();
-      }
-      return;
-    }
-
-    // If Android Install modal is open, close it
-    if (isAndroidModalOpen) {
-      setIsAndroidModalOpen(false);
-      if (typeof window !== "undefined" && window.history.state?.screen === "android") {
-        window.history.back();
-      }
       return;
     }
 
@@ -797,31 +772,31 @@ export default function App() {
       setActiveSessionId(null);
       setInput("");
       setErrorBanner(null);
-      if (typeof window !== "undefined" && window.history.state?.screen === "chat") {
-        window.history.back();
-      }
       return;
     }
+  };
 
-    // On the main/home screen, behave appropriately without breaking the app
-    if (
-      typeof window !== "undefined" &&
-      window.history.length > 1 &&
-      window.history.state?.screen &&
-      window.history.state.screen !== "home"
-    ) {
-      try {
-        window.history.back();
-      } catch {
-        // Safe no-op
-      }
+  const getSubjectIcon = (iconName: string) => {
+    switch (iconName) {
+      case "Calculator":
+        return <Calculator className="w-4 h-4 text-blue-500" />;
+      case "FlaskConical":
+        return <FlaskConical className="w-4 h-4 text-emerald-500" />;
+      case "BookOpen":
+        return <BookOpen className="w-4 h-4 text-purple-500" />;
+      case "Globe":
+        return <Globe className="w-4 h-4 text-amber-500" />;
+      case "PenTool":
+        return <PenTool className="w-4 h-4 text-rose-500" />;
+      default:
+        return <Sparkles className="w-4 h-4 text-amber-500" />;
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       {/* Android Install Announcement Banner */}
-      <AndroidBanner onOpenModal={handleOpenAndroidModal} />
+      <AndroidBanner />
 
       {/* Top Header */}
       <Header
@@ -833,10 +808,13 @@ export default function App() {
         isAudioPlaying={speechState.isSpeaking && !speechState.isPaused}
         onStopAudio={stopSpeaking}
         onBack={handleHeaderBack}
-        isSecondaryScreen={messages.length > 0 || isSearchScreenOpen}
-        onOpenAndroidModal={handleOpenAndroidModal}
-        onOpenSearch={handleOpenSearch}
+        isSecondaryScreen={messages.length > 0}
+        onInstallApp={handleInstallApp}
+        canInstall={canInstall}
+        isInstalled={isInstalled}
         onOpenSettings={handleOpenSettings}
+        onDownloadApk={downloadApk}
+        isApkConfigured={isApkConfigured}
       />
 
       {/* Offline Mode Active Indicator Banner */}
@@ -861,7 +839,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Audio Playback Control Bar (Play, Pause, Stop, Speed Control & Auto-Speak Switch) */}
+      {/* Audio Playback Control Bar */}
       <AudioPlayerBar
         speechState={speechState}
         onPlay={resumeSpeaking}
@@ -872,10 +850,14 @@ export default function App() {
         onSpeedChange={setPlaybackSpeed}
       />
 
-      {/* Main Study Canvas / Scrollable Chat Area */}
+      {/* Main Home Screen Canvas */}
       <main
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 pb-36 max-w-4xl w-full mx-auto"
+        style={{
+          paddingBottom: isKeyboardOpen ? `${keyboardHeight + 30}px` : "40px",
+          transition: "padding-bottom 0.15s ease-out",
+        }}
+        className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-5 max-w-4xl w-full mx-auto"
       >
         {/* Error Notification Banner */}
         {errorBanner && (
@@ -898,79 +880,257 @@ export default function App() {
           </div>
         )}
 
-        {/* View Switch: Welcome Screen when empty, Conversation Thread when active */}
-        {messages.length === 0 ? (
-          <WelcomeScreen
-            onSelectPrompt={(prompt: string) => {
-              setInput(prompt);
-              handleSend(prompt);
-            }}
-            onSubmitQuestion={(question: string, image?: string) => {
-              setInput(question);
-              handleSend(question, false, image);
-            }}
-            onVoiceStart={handleStartVoice}
-            isVoiceSupported={speechManager.isSupported()}
-            isListening={isListening}
-            onOpenSearch={() => setIsSearchScreenOpen(true)}
-            onOpenSettings={() => setIsSettingsModalOpen(true)}
-          />
-        ) : (
-          <div className="space-y-4 pt-2">
-            {/* Conversation Active Header Tag */}
-            <div className="flex items-center justify-center mb-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/60 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                <BookOpen className="w-3 h-3 text-amber-500" />
-                <span>Mithila Academy Study Session</span>
+        {/* HOME SCREEN STRUCTURE:
+            Mithila Academy AI header (already at top)
+            ↓
+            Ask Mithila Academy AI
+            ↓
+            LARGE GOOGLE-STYLE SEARCH BAR
+            ↓
+            Example question chips
+            ↓
+            AI answer area
+        */}
+        <div className="max-w-3xl mx-auto text-center mb-6">
+          {/* Academy Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs sm:text-sm font-semibold mb-2.5">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>Mithila Academy AI • Surendra Sir</span>
+          </div>
+
+          {/* Main Title */}
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
+            Ask <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-orange-500 to-amber-500 dark:from-amber-400 dark:to-orange-400">Mithila Academy AI</span>
+          </h1>
+
+          {/* Subtitle description */}
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto mb-4 sm:mb-5 leading-relaxed">
+            Your academic mentor. Type, speak, or take a photo of any question in{" "}
+            <strong className="text-slate-900 dark:text-white font-semibold">Hindi, Hinglish, or English</strong>.
+          </p>
+
+          {/* PRIMARY GOOGLE-STYLE SEARCH BAR (ONE UNIFIED PROMINENT SEARCH BAR) */}
+          <div ref={searchContainerRef} className="scroll-mt-4">
+            <HomeSearchBar
+              input={input}
+              setInput={setInput}
+              onSubmit={(question: string, image?: string) => {
+                handleSend(question, false, image);
+              }}
+              onVoiceStart={handleStartVoice}
+              isListening={isListening}
+              isVoiceSupported={speechManager.isSupported()}
+              isLoading={isLoading}
+              onFocus={() => scrollToFocusedElement(searchContainerRef.current)}
+            />
+          </div>
+
+          {/* EXAMPLE QUESTION CHIPS */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+            <button
+              type="button"
+              id="chip-location-btn"
+              onClick={() => handleSend("Mithila Academy kaha hai?")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition active:scale-95 shadow-xs cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Mithila Academy kaha hai?</span>
+            </button>
+            <button
+              type="button"
+              id="chip-photosynthesis-btn"
+              onClick={() => handleSend("Photosynthesis kya hai?")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition active:scale-95 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            >
+              <span>Photosynthesis kya hai?</span>
+            </button>
+            <button
+              type="button"
+              id="chip-newton-btn"
+              onClick={() => handleSend("Newton ka third law samjhao.")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition active:scale-95 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            >
+              <span>Newton ka third law samjhao.</span>
+            </button>
+            <button
+              type="button"
+              id="chip-math-btn"
+              onClick={() => handleSend("12 × 15 kitna hota hai?")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition active:scale-95 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            >
+              <span>12 × 15 kitna hota hai?</span>
+            </button>
+          </div>
+        </div>
+
+        {/* AI ANSWER AREA */}
+        <div id="ai-answer-area" className="max-w-3xl mx-auto w-full">
+          {messages.length === 0 ? (
+            /* Academic Overview & Subjects when no questions yet */
+            <div className="space-y-6 pt-2">
+              {/* Academic Highlights */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-w-xl mx-auto text-left text-xs text-slate-600 dark:text-slate-300">
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span className="font-medium">Step-by-step Maths</span>
+                </div>
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span className="font-medium">Science with formulas</span>
+                </div>
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs col-span-2 sm:col-span-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  <span className="font-medium">Hindi & English answers</span>
+                </div>
+              </div>
+
+              {/* Real Android APK Download Card */}
+              <div
+                id="home-download-apk-card"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-left"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Download className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Android APK (.apk)
+                        </h4>
+                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          v1.1.0
+                        </span>
+                      </div>
+                      {isApkConfigured ? (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Download the real Android APK package directly to your device.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                          APK download is not available yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {isApkConfigured ? (
+                      <button
+                        type="button"
+                        onClick={downloadApk}
+                        id="home-download-apk-btn"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-sm transition active:scale-95 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 stroke-[2.5]" />
+                        <span>Download APK</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        id="home-download-apk-btn"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-semibold text-xs cursor-not-allowed opacity-75"
+                        title="APK download is not available yet."
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download APK</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Subject Prompt Categories */}
+              <div className="text-left mb-4">
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">
+                  Explore by Subject • विषय चुनें
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {SUBJECT_CATEGORIES.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/50 transition shadow-sm text-left"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+                            {getSubjectIcon(cat.iconName)}
+                          </span>
+                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                            {cat.name}
+                          </span>
+                          <span className="text-[11px] text-slate-400">({cat.hindiName})</span>
+                        </div>
+                      </div>
+
+                      {/* Sample question from this category */}
+                      <button
+                        type="button"
+                        onClick={() => handleSend(cat.examples[0])}
+                        className="w-full text-left p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-xs text-slate-700 dark:text-slate-300 transition group flex items-center justify-between gap-1 cursor-pointer"
+                      >
+                        <span className="truncate">{cat.examples[0]}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 flex-shrink-0 transition" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-
-            {/* Messages Thread */}
-            {messages.map((msg) => (
-              <MessageItem key={msg.id} message={msg} />
-            ))}
-
-            {/* Loading Indicator when Gemini AI is generating */}
-            {isLoading && (
-              <div className="flex gap-2.5 sm:gap-3.5 mb-6 animate-pulse">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-bold shadow-sm ring-2 ring-amber-500/20">
-                  <Sparkles className="w-4 h-4 text-slate-950 animate-spin" />
+          ) : (
+            /* Active Conversation & Live AI Answers */
+            <div className="space-y-4 pt-1">
+              {/* Session Control Bar */}
+              <div className="flex items-center justify-between px-2 py-1 mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/60 dark:bg-slate-800/80 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                  <BookOpen className="w-3 h-3 text-amber-500" />
+                  <span>Mithila Academy Study Session • {messages.length} message{messages.length > 1 ? "s" : ""}</span>
                 </div>
-                <div className="flex-1 p-4 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm max-w-md">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      Surendra Sir's AI is analyzing...
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-3/4"></div>
-                    <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-5/6"></div>
-                    <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-1/2"></div>
-                  </div>
-                  <div className="mt-3 text-[11px] text-slate-400 dark:text-slate-500 italic">
-                    Fast academic explanation loading...
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleNewQuestion}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>New Question</span>
+                </button>
               </div>
-            )}
-          </div>
-        )}
-      </main>
 
-      {/* Floating Bottom Question Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 pb-4 pt-2 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 dark:to-transparent pointer-events-none">
-        <div className="pointer-events-auto">
-          <QuestionInput
-            input={input}
-            setInput={setInput}
-            onSubmit={(img) => handleSend(undefined, false, img)}
-            onStartVoice={handleStartVoice}
-            isListening={isListening}
-            isLoading={isLoading}
-            isVoiceSupported={speechManager.isSupported()}
-          />
+              {/* Messages Thread */}
+              {messages.map((msg) => (
+                <MessageItem key={msg.id} message={msg} />
+              ))}
+
+              {/* Loading Indicator when Gemini AI is generating */}
+              {isLoading && (
+                <div className="flex gap-2.5 sm:gap-3.5 mb-6 animate-pulse">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-bold shadow-sm ring-2 ring-amber-500/20">
+                    <Sparkles className="w-4 h-4 text-slate-950 animate-spin" />
+                  </div>
+                  <div className="flex-1 p-4 rounded-2xl rounded-tl-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm max-w-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                        Surendra Sir's AI is analyzing...
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-3/4"></div>
+                      <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-5/6"></div>
+                      <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-1/2"></div>
+                    </div>
+                    <div className="mt-3 text-[11px] text-slate-400 dark:text-slate-500 italic">
+                      Fast academic explanation loading...
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      </main>
 
       {/* Voice Recognition Interactive Overlay */}
       <VoiceListeningOverlay
@@ -986,12 +1146,6 @@ export default function App() {
         onRetry={handleStartVoice}
       />
 
-      {/* Android Install & APK Modal */}
-      <AndroidInstallModal
-        isOpen={isAndroidModalOpen}
-        onClose={() => setIsAndroidModalOpen(false)}
-      />
-
       {/* Chat History Modal */}
       <ChatHistoryModal
         isOpen={isHistoryOpen}
@@ -1003,48 +1157,19 @@ export default function App() {
         onClearAll={handleClearAllHistory}
       />
 
-      {/* Dedicated Search Screen */}
-      {isSearchScreenOpen && (
-        <SearchScreen
-          onBack={() => setIsSearchScreenOpen(false)}
-          onSendQuery={(q, img) => {
-            setIsSearchScreenOpen(false);
-            setInput(q);
-            handleSend(q, false, img);
-          }}
-          onStartVoice={handleStartVoice}
-          onStopVoice={speechManager.stop}
-          isListening={isListening}
-          isLoading={isLoading}
-          isVoiceSupported={speechManager.isSupported()}
-          voiceTranscript={voiceTranscript}
-          voiceInterim={voiceInterim}
-          activeSessionMessages={messages}
-          voiceLanguage={voiceLanguage}
-          onChangeVoiceLanguage={handleChangeVoiceLang}
-          onStopAudio={stopSpeaking}
-          isAudioPlaying={speechState.isSpeaking && !speechState.isPaused}
-        />
-      )}
-
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onOpenSearch={() => {
-          setIsSettingsModalOpen(false);
-          setIsSearchScreenOpen(true);
-        }}
         autoSpeakEnabled={autoSpeakEnabled}
         onToggleAutoSpeak={handleToggleAutoSpeak}
         playbackSpeed={speechState.playbackSpeed}
         onSpeedChange={setPlaybackSpeed}
         voiceLanguage={voiceLanguage}
         onChangeVoiceLanguage={handleChangeVoiceLang}
-        onOpenAndroidModal={() => {
-          setIsSettingsModalOpen(false);
-          setIsAndroidModalOpen(true);
-        }}
+        onInstallApp={handleInstallApp}
+        canInstall={canInstall}
+        isInstalled={isInstalled}
         offlineMode={offlineMode}
         onToggleOfflineMode={() => {
           setOfflineMode((prev) => {

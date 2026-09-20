@@ -240,12 +240,13 @@ fun SearchScreen(
                 }
             }
         },
-        modifier = modifier
+        modifier = modifier.imePadding()
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             // Recent Searches Chips

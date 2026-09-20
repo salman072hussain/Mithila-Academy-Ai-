@@ -20,20 +20,26 @@ import {
   MapPin,
   HelpCircle,
   RotateCcw,
+  Download,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { SupportedLanguage } from "../types";
+import { useApkDownload } from "../hooks/useApkDownload";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenSearch: () => void;
+  onOpenSearch?: () => void;
   autoSpeakEnabled: boolean;
   onToggleAutoSpeak: () => void;
   playbackSpeed: number;
   onSpeedChange: (speed: number) => void;
   voiceLanguage: SupportedLanguage;
   onChangeVoiceLanguage: (lang: SupportedLanguage) => void;
-  onOpenAndroidModal: () => void;
+  onInstallApp?: () => void;
+  canInstall?: boolean;
+  isInstalled?: boolean;
   offlineMode: boolean;
   onToggleOfflineMode: () => void;
   darkMode: boolean;
@@ -52,7 +58,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSpeedChange,
   voiceLanguage,
   onChangeVoiceLanguage,
-  onOpenAndroidModal,
+  onInstallApp,
+  canInstall = false,
+  isInstalled = false,
   offlineMode,
   onToggleOfflineMode,
   darkMode,
@@ -64,6 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [historyCleared, setHistoryCleared] = useState(false);
+  const { isConfigured: isApkConfigured, downloadApk } = useApkDownload();
 
   // Android hardware back navigation support
   useEffect(() => {
@@ -92,7 +101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleOpenSearchClick = () => {
     onClose();
-    onOpenSearch();
+    if (onOpenSearch) onOpenSearch();
   };
 
   const handleClearHistoryClick = () => {
@@ -207,34 +216,23 @@ fun MithilaSearchScreen(
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {activeTab === "general" ? (
             <>
-              {/* PRIMARY REQUIREMENT: SEARCH OPTION INSIDE SETTINGS */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border-2 border-amber-400/40 dark:border-amber-500/30 shadow-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold flex-shrink-0 shadow-sm">
-                      <Search className="w-5 h-5 stroke-[2.5]" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <span>Search</span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold">
-                          Google Style
-                        </span>
-                      </h3>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
-                        Open the dedicated native Search screen
-                      </p>
-                    </div>
+              {/* Mithila Academy AI Info Header Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/5 border border-amber-400/30 dark:border-amber-500/20 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center font-bold flex-shrink-0 shadow-sm">
+                    <GraduationCap className="w-5 h-5 text-white" />
                   </div>
-
-                  <button
-                    onClick={handleOpenSearchClick}
-                    id="settings-open-search-btn"
-                    className="flex-shrink-0 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 transition shadow-sm active:scale-95"
-                  >
-                    <span>Open Search</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>Mithila Academy AI</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold">
+                        Surendra Sir
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
+                      Kauriyahi Village • Bihar Board & CBSE Academic Tutor
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -475,31 +473,110 @@ fun MithilaSearchScreen(
                 )}
               </div>
 
-              {/* Android Native Install Trigger */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                    <Smartphone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Install on Android Device
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Standalone APK & 1-tap installation
-                    </p>
-                  </div>
+              {/* Android App & Installation Section */}
+              <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Android App & Installation
+                  </h4>
                 </div>
-                <button
-                  onClick={() => {
-                    onClose();
-                    onOpenAndroidModal();
-                  }}
-                  id="settings-install-app-btn"
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-xs active:scale-95"
-                >
-                  Install App
-                </button>
+
+                {/* 1. REAL ANDROID APK DOWNLOAD OPTION */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                        <Download className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                          Android APK (.apk)
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {isApkConfigured
+                            ? "Download the real Android APK package file"
+                            : "APK download is not available yet."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isApkConfigured ? (
+                      <button
+                        onClick={downloadApk}
+                        id="settings-download-apk-btn"
+                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download APK</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        id="settings-download-apk-btn"
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 text-xs font-semibold cursor-not-allowed flex items-center gap-1.5 opacity-70"
+                        title="APK download is not available yet."
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download APK</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status note strictly adhering to user instructions */}
+                  {isApkConfigured ? (
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <span>Tap <strong>"Download APK"</strong> to download the real Android APK directly to your device.</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      <span>APK download is not available yet.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. PROGRESSIVE WEB APP (PWA) INSTALL OPTION - STRICTLY SEPARATE */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Install as Web App
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {isInstalled
+                          ? "App is running in installed standalone mode"
+                          : canInstall
+                          ? "Browser Web App install (PWA)"
+                          : "Install option is currently unavailable in this browser"}
+                      </p>
+                    </div>
+                  </div>
+                  {isInstalled ? (
+                    <div className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Installed</span>
+                    </div>
+                  ) : canInstall ? (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        if (onInstallApp) onInstallApp();
+                      }}
+                      id="settings-install-pwa-btn"
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer"
+                    >
+                      Install as Web App
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-medium text-slate-400 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Academic Disclaimer */}
